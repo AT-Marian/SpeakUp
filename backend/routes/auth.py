@@ -109,8 +109,9 @@ def login():
         )
         
         # Prepare user response
-        user_data = serialize_mongo_doc(user_doc)
-        user_data.pop('password', None)
+        user_data = serialize_mongo_doc(user_doc) or {}
+        if isinstance(user_data, dict):
+            user_data.pop('password', None)
         
         Logger.info(f"User logged in: {email}")
         

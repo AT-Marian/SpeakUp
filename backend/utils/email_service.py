@@ -3,6 +3,7 @@ import os
 import socket
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from typing import Optional
 from dotenv import load_dotenv
 from utils.helpers import Logger
 
@@ -10,7 +11,7 @@ from utils.helpers import Logger
 load_dotenv()
 
 
-def send_password_reset_email(to_email: str, reset_url: str, user_name: str = None) -> bool:
+def send_password_reset_email(to_email: str, reset_url: str, user_name: Optional[str] = None) -> bool:
     """
     Send password reset email via Gmail SMTP.
     Requires MAIL_USERNAME and MAIL_PASSWORD in .env
