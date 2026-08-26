@@ -18,7 +18,7 @@ import SessionSummary from './components/pages/SessionSummary';
 import Profile from './components/pages/Profile';
 import Feedback from './components/pages/Feedback';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
 
 function App() {
   // Global State for Authentication

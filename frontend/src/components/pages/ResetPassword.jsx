@@ -4,7 +4,7 @@ import { FiArrowLeft, FiLock, FiEye, FiEyeOff, FiCheckCircle } from 'react-icons
 import axios from 'axios';
 import logo from '../../assets/logo_icon.png';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();

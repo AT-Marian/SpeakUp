@@ -26,7 +26,11 @@ class Config:
     CLAUDE_API_KEY = os.getenv('CLAUDE_API_KEY')
     
     # CORS
-    CORS_ORIGINS = os.getenv('CORS_ORIGINS', 'http://localhost:3000').split(',')
+    cors_env = os.getenv('CORS_ORIGINS', '*').strip()
+    if cors_env == '*' or not cors_env:
+        CORS_ORIGINS = '*'
+    else:
+        CORS_ORIGINS = [o.strip() for o in cors_env.split(',') if o.strip()]
     
     # Server
     PORT = int(os.getenv('PORT', 5000))

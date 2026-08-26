@@ -4,7 +4,7 @@ import { FiEye, FiEyeOff } from 'react-icons/fi';
 import axios from 'axios';
 import logo from '../../assets/logo_icon.png';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
 
 export default function Login({ setIsLoggedIn, setUser }) {
   const [email, setEmail] = useState('');

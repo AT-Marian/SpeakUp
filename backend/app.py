@@ -54,6 +54,20 @@ from utils.helpers import generate_response, Logger
 # Create Flask app
 app = Flask(__name__)
 
+# Normalize multiple slashes in request paths (e.g. //api -> /api)
+class NormalizeSlashMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    def __call__(self, environ, start_response):
+        path_info = environ.get('PATH_INFO', '')
+        if '//' in path_info:
+            import re
+            environ['PATH_INFO'] = re.sub(r'/+', '/', path_info)
+        return self.app(environ, start_response)
+
+app.wsgi_app = NormalizeSlashMiddleware(app.wsgi_app)
+
 # Load configuration from config.py
 from config import config
 env = os.getenv('FLASK_ENV', 'development')
@@ -61,7 +75,23 @@ app.config.from_object(config[env])
 
 # Initialize extensions
 jwt = JWTManager(app)
-CORS(app, resources={r"/api/*": {"origins": app.config.get('CORS_ORIGINS', '*')}})
+cors_origins = app.config.get('CORS_ORIGINS', '*')
+CORS(app, resources={r"/*": {"origins": cors_origins}}, supports_credentials=True)
+
+@app.after_request
+def add_cors_headers(response):
+    from flask import request
+    origin = request.headers.get('Origin')
+    if origin:
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    elif cors_origins == '*':
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    return response
 
 # --- DATABASE CONNECTION ---
 MONGO_URI = os.getenv('MONGODB_URI', "mongodb+srv://AT-Marian:Tm200114@cluster0.bibltvc.mongodb.net/speakup?retryWrites=true&w=majority&authSource=admin")
