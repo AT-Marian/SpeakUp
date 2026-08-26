@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiMenu, FiX, FiLogOut, FiUser } from 'react-icons/fi';
+import logo from '../assets/logo_icon.png';
 
 export default function Navbar({ isLoggedIn, user, setIsLoggedIn }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -8,8 +9,23 @@ export default function Navbar({ isLoggedIn, user, setIsLoggedIn }) {
 
   const handleLogout = () => {
     localStorage.removeItem('user');
+    localStorage.removeItem('token');
     setIsLoggedIn(false);
     navigate('/');
+  };
+
+  const getFirstName = () => {
+    let u = user;
+    if (!u) {
+      try {
+        u = JSON.parse(localStorage.getItem('user'));
+      } catch (e) {
+        u = null;
+      }
+    }
+    if (u?.name) return u.name.trim().split(' ')[0];
+    if (u?.email) return u.email.split('@')[0];
+    return 'Profile';
   };
 
   return (
@@ -17,10 +33,8 @@ export default function Navbar({ isLoggedIn, user, setIsLoggedIn }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
-            <div className="bg-primary rounded-lg p-2">
-              <span className="text-white font-bold text-xl">🎯</span>
-            </div>
+          <Link to="/" className="flex items-center gap-3">
+            <img src={logo} alt="SpeakUp Logo" className="w-10 h-10 object-contain rounded-lg shadow-sm" />
             <span className="text-xl font-bold text-gray-900 hidden sm:inline">SpeakUp</span>
           </Link>
 
@@ -44,7 +58,7 @@ export default function Navbar({ isLoggedIn, user, setIsLoggedIn }) {
                   Dashboard
                 </Link>
                 <Link to="/profile" className="flex items-center gap-2 text-gray-600 hover:text-primary transition">
-                  <FiUser /> {user?.name?.split(' ')[0]}
+                  <FiUser /> {getFirstName()}
                 </Link>
                 <button 
                   onClick={handleLogout} 

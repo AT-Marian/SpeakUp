@@ -18,6 +18,27 @@ export default function Dashboard({ user }) {
     fetchStats();
   }, []);
 
+  const getFirstName = () => {
+    let u = user;
+    if (!u) {
+      try {
+        u = JSON.parse(localStorage.getItem('user'));
+      } catch (e) {
+        u = null;
+      }
+    }
+    if (u?.name) {
+      return u.name.trim().split(' ')[0];
+    }
+    if (u?.email) {
+      const namePart = u.email.split('@')[0];
+      return namePart.charAt(0).toUpperCase() + namePart.slice(1);
+    }
+    return '';
+  };
+
+  const firstName = getFirstName();
+
   const fetchStats = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -46,7 +67,7 @@ export default function Dashboard({ user }) {
         {/* Welcome Section */}
         <div className="mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            Welcome back, {user?.name?.split(' ')[0] || 'User'}!
+            Welcome back{firstName ? `, ${firstName}` : ''}!
           </h1>
           <p className="text-gray-600">Pick up where you left off, or start fresh.</p>
         </div>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 import axios from 'axios';
+import logo from '../../assets/logo_icon.png';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
@@ -49,9 +50,7 @@ export default function Login({ setIsLoggedIn, setUser }) {
       <div className="w-full max-w-md bg-white rounded-xl shadow-xl p-8">
         {/* Logo */}
         <div className="flex justify-center mb-8">
-          <div className="bg-primary rounded-lg p-3">
-            <span className="text-white font-bold text-3xl">🎯</span>
-          </div>
+          <img src={logo} alt="SpeakUp Logo" className="w-16 h-16 object-contain rounded-2xl shadow-md" />
         </div>
 
         <h2 className="text-3xl font-bold text-gray-900 mb-2 text-center">Welcome back</h2>

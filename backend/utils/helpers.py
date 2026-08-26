@@ -9,7 +9,9 @@ def generate_response(success, message, data=None, status_code=200):
         'message': message,
         'timestamp': datetime.utcnow().isoformat()
     }
-    if data:
+    if not success:
+        response['error'] = message
+    if data is not None:
         response['data'] = data
     return response, status_code
 

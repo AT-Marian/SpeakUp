@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { FiArrowLeft, FiMail } from 'react-icons/fi';
 import axios from 'axios';
+import logo from '../../assets/logo_icon.png';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
@@ -9,6 +10,7 @@ export default function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [resetToken, setResetToken] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -16,6 +18,7 @@ export default function ForgotPassword() {
     e.preventDefault();
     setError('');
     setSuccess('');
+    setResetToken('');
 
     if (!email) {
       setError('Please enter your email address');
@@ -25,11 +28,13 @@ export default function ForgotPassword() {
     setLoading(true);
 
     try {
-      await axios.post(`${API_URL}/api/auth/forgot-password`, { email });
-      setSuccess('Password reset link sent to your email. Check your inbox!');
-      setTimeout(() => {
-        navigate('/login');
-      }, 3000);
+      const res = await axios.post(`${API_URL}/api/auth/forgot-password`, { email });
+      const token = res.data?.data?.token;
+      
+      setSuccess(res.data?.message || 'Password reset link created!');
+      if (token) {
+        setResetToken(token);
+      }
     } catch (err) {
       setError(err.response?.data?.error || 'Could not send reset link. Please try again.');
     } finally {
@@ -50,14 +55,12 @@ export default function ForgotPassword() {
 
         {/* Logo */}
         <div className="flex justify-center mb-8">
-          <div className="bg-primary rounded-lg p-3">
-            <span className="text-white font-bold text-3xl">🎯</span>
-          </div>
+          <img src={logo} alt="SpeakUp Logo" className="w-16 h-16 object-contain rounded-2xl shadow-md" />
         </div>
 
         <h2 className="text-3xl font-bold text-gray-900 mb-2 text-center">Forgot Password?</h2>
         <p className="text-gray-600 mb-8 text-center">
-          Enter your email and we'll send you a link to reset your password.
+          Enter your email and we'll generate a secure link to reset your password.
         </p>
 
         {error && (
@@ -67,9 +70,21 @@ export default function ForgotPassword() {
         )}
 
         {success && (
-          <div className="mb-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm flex items-start gap-3">
-            <FiMail className="mt-0.5 flex-shrink-0" />
-            {success}
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-800 rounded-lg text-sm space-y-3">
+            <div className="flex items-start gap-3">
+              <FiMail className="mt-0.5 text-green-600 flex-shrink-0 w-5 h-5" />
+              <span>{success}</span>
+            </div>
+            {resetToken && (
+              <div className="pt-2 border-t border-green-200">
+                <Link
+                  to={`/reset-password?token=${resetToken}`}
+                  className="block w-full py-2.5 px-4 bg-green-600 hover:bg-green-700 text-white text-center font-semibold rounded-lg shadow transition"
+                >
+                  👉 Click Here to Reset Password
+                </Link>
+              </div>
+            )}
           </div>
         )}
 

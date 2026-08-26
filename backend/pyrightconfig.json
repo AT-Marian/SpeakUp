@@ -1,0 +1,11 @@
+{
+  "venvPath": ".",
+  "venv": "venv",
+  "pythonVersion": "3.12",
+  "pythonPath": "./venv/Scripts/python.exe",
+  "include": ["."],
+  "exclude": ["venv", "ven", "__pycache__", "*.pyc"],
+  "reportMissingImports": false,
+  "reportMissingModuleSource": false,
+  "typeCheckingMode": "basic"
+}

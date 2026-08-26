@@ -6,6 +6,11 @@ import os
 from dotenv import load_dotenv
 import sys
 
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8')
+
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
 
 print(f"\n{'='*70}")
@@ -22,7 +27,6 @@ load_dotenv(env_path)
 credentials_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
 
 if credentials_path:
-    # If relative path, make it relative to backend folder
     if not os.path.isabs(credentials_path):
         full_credentials_path = os.path.join(BACKEND_DIR, credentials_path)
         os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = full_credentials_path
@@ -60,9 +64,8 @@ jwt = JWTManager(app)
 CORS(app, resources={r"/api/*": {"origins": app.config.get('CORS_ORIGINS', '*')}})
 
 # --- DATABASE CONNECTION ---
-# Using the URI verified by test_db.py
-MONGO_URI = "mongodb+srv://AT-Marian:Tm200114@cluster0.bibltvc.mongodb.net/speakup?retryWrites=true&w=majority"
-DB_NAME = "speakup"
+MONGO_URI = os.getenv('MONGODB_URI', "mongodb+srv://AT-Marian:Tm200114@cluster0.bibltvc.mongodb.net/speakup?retryWrites=true&w=majority&authSource=admin")
+DB_NAME = os.getenv('DATABASE_NAME', "speakup")
 
 try:
     mongo_client = MongoClient(MONGO_URI, tlsAllowInvalidCertificates=True, serverSelectionTimeoutMS=5000)
@@ -75,7 +78,7 @@ try:
 except Exception as e:
     print(f"❌ Flask App: Database connection failed: {e}")
     Logger.error(f"MongoDB connection failed: {str(e)}")
-    db = None # Routes will handle db being None gracefully
+    db = None
 
 # --- ROUTE SETUP ---
 if db is not None:
@@ -104,5 +107,4 @@ def root():
 if __name__ == '__main__':
     port = int(app.config.get('PORT', 5000))
     host = app.config.get('HOST', '0.0.0.0')
-    # use_reloader=False prevents the Windows socket error (WinError 10038)
     app.run(host=host, port=port, debug=app.config.get('DEBUG', True), use_reloader=False)

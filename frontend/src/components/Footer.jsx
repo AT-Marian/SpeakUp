@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import logo from '../assets/logo_icon.png';
 
 export default function Footer() {
   return (
@@ -8,10 +9,8 @@ export default function Footer() {
         <div className="grid md:grid-cols-4 gap-8 mb-8">
           {/* Brand */}
           <div>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="bg-primary rounded-lg p-2">
-                <span className="font-bold text-xl">🎯</span>
-              </div>
+            <div className="flex items-center gap-3 mb-4">
+              <img src={logo} alt="SpeakUp Logo" className="w-9 h-9 object-contain rounded-lg shadow-sm" />
               <span className="font-bold text-lg">SpeakUp</span>
             </div>
             <p className="text-gray-400 text-sm">
