@@ -339,41 +339,174 @@ class QuestionGenerationService:
     def __init__(self):
         self.gemini_api_key = os.getenv('GEMINI_API_KEY') or (current_app.config.get('GEMINI_API_KEY') if current_app else None)
 
-    def generate_question(self, role: str, industry: str, mode: str = 'interview') -> Dict:
-        fallback_questions = self._get_fallback_questions(role, industry, mode)
+    # Dynamic thematic focus based on question number
+    INTERVIEW_THEMES = [
+        "Introduction, elevator pitch, and background summary",
+        "Technical depth, key tools, and solving complex domain challenges",
+        "Behavioral scenario, collaboration, handling feedback, or cross-functional teamwork",
+        "Problem-solving under pressure, dealing with ambiguity, tight deadlines, or difficult trade-offs",
+        "Leadership, continuous learning, mentoring others, and future career vision"
+    ]
 
+    MEETING_THEMES = [
+        "Project status briefing, standup update, and milestone recap",
+        "Proposing a technical or strategic approach and explaining trade-offs to stakeholders",
+        "Addressing client or stakeholder pushback, scope changes, and budget or timeline concerns",
+        "Cross-functional coordination with product, design, or business teams",
+        "Meeting summary, action items assignment, and defining next milestones"
+    ]
+
+    def generate_question(
+        self,
+        role: str,
+        industry: str,
+        mode: str = 'interview',
+        previous_questions: Optional[List[str]] = None,
+        question_number: int = 1
+    ) -> Dict:
+        """
+        Generate a unique, role-specific question that avoids repeating previous questions.
+        """
+        previous_questions = previous_questions or []
+        themes = self.INTERVIEW_THEMES if mode == 'interview' else self.MEETING_THEMES
+        theme = themes[(question_number - 1) % len(themes)]
+
+        # 1. Try Gemini AI Generation with strict anti-repetition instructions
         if self.gemini_api_key:
             try:
                 client = _get_genai_client(self.gemini_api_key)
                 if client:
-                    prompt = f"Generate a single professional {mode} question for a {role} position in the {industry} industry. Return ONLY the question, no extra text."
+                    previous_str = "\n".join([f"- {q}" for q in previous_questions]) if previous_questions else "None (this is the first question)"
+                    prompt = f"""You are an elite executive interview coach and workplace communication evaluator.
+Generate Question #{question_number} for a {mode} practice session.
+
+Position: {role}
+Industry: {industry}
+Session Mode: {mode.capitalize()}
+Question Topic Focus: {theme}
+
+PREVIOUSLY ASKED QUESTIONS IN THIS SESSION (DO NOT REPEAT OR PARAPHRASE THESE):
+{previous_str}
+
+REQUIREMENTS:
+1. The question MUST be realistic, specific, and directly relevant to a {role} in the {industry} sector.
+2. The question MUST focus on: {theme}.
+3. The question MUST NOT duplicate or cover the same topic as the previous questions listed above.
+4. Return ONLY the question text itself. Do not include question numbers, quotes, prefixes, or conversational remarks."""
+
                     question = _gemini_text(client, prompt)
                     if question:
-                        return {'success': True, 'question': question}
+                        clean_q = question.strip().strip('"').strip("'")
+                        # Verify it is not a direct duplicate
+                        if not any(clean_q.lower() == prev.lower().strip() for prev in previous_questions):
+                            Logger.info(f"Generated Question #{question_number} via Gemini ({theme}): {clean_q}")
+                            return {'success': True, 'question': clean_q, 'source': 'gemini'}
             except Exception as e:
-                Logger.warning(f"Gemini question generation failed: {e}")
+                Logger.warning(f"Gemini question generation error: {e}")
 
-        if fallback_questions:
+        # 2. Fallback to rich question bank (filtering out already asked questions)
+        fallback_pool = self._get_fallback_questions(role, industry, mode, question_number)
+        unasked = [q for q in fallback_pool if not any(q.lower().strip() == prev.lower().strip() for prev in previous_questions)]
+
+        if unasked:
             import random
-            return {'success': True, 'question': random.choice(fallback_questions), 'source': 'database'}
+            selected = random.choice(unasked)
+            Logger.info(f"Generated Question #{question_number} from fallback pool: {selected}")
+            return {'success': True, 'question': selected, 'source': 'database'}
 
-        return {'success': False, 'error': 'Could not generate question', 'question': 'Tell me about your professional experience.'}
+        # Emergency fallback if all bank questions were exhausted
+        generic_fallbacks = [
+            f"As a {role}, what is your approach to prioritizing competing demands during a busy sprint?",
+            f"Can you describe a time in {industry} where you had to adapt quickly to an unexpected change?",
+            f"How do you ensure clear and effective communication when collaborating across different teams?",
+            f"What methods do you use to measure the success and quality of your work as a {role}?",
+            f"What is one key industry trend in {industry} that you believe will impact your role in the next few years?"
+        ]
+        unasked_generic = [q for q in generic_fallbacks if not any(q.lower().strip() == prev.lower().strip() for prev in previous_questions)]
+        chosen = unasked_generic[0] if unasked_generic else generic_fallbacks[(question_number - 1) % len(generic_fallbacks)]
 
-    def _get_fallback_questions(self, role: str, industry: str, mode: str) -> List[str]:
-        fallback_db = {
+        return {'success': True, 'question': chosen, 'source': 'generic_fallback'}
+
+    def _get_fallback_questions(self, role: str, industry: str, mode: str, question_number: int = 1) -> List[str]:
+        """Rich fallback question repository organized by role, mode, and category."""
+        bank = {
             'Software Engineer': {
-                'Technology': {
-                    'interview': [
-                        'Tell me about a challenging technical problem you solved.',
-                        'Describe your experience with version control systems like Git.',
-                    ],
-                    'meeting': ['How would you explain a technical concept to a non-technical client?']
-                }
+                'interview': [
+                    "Can you give me an overview of your software engineering background and the tech stacks you enjoy working with most?",
+                    "Tell me about a challenging technical bug or architectural problem you solved recently. How did you diagnose it?",
+                    "How do you approach code reviews and giving constructive feedback to peers?",
+                    "Describe a time when you had to make a trade-off between delivering code quickly versus maintaining clean architecture.",
+                    "How do you stay up-to-date with emerging technologies and decide when to adopt a new tool or framework?",
+                    "How do you handle technical debt in a fast-paced environment?",
+                    "Describe an experience where requirements were ambiguous. How did you clarify what needed to be built?",
+                    "What strategies do you use for optimizing application performance and scalability?"
+                ],
+                'meeting': [
+                    "Could you give us a quick status update on your current sprint deliverables and any blockers you're facing?",
+                    "How would you explain the architectural trade-offs of microservices vs monoliths to non-technical stakeholders?",
+                    "A client is requesting an urgent out-of-scope feature. How do you address this in our sprint planning meeting?",
+                    "How do we coordinate our API changes with the mobile and frontend teams to avoid breaking changes?",
+                    "Let's summarize the key takeaways and assign owners for the action items discussed today."
+                ]
+            },
+            'Product Manager': {
+                'interview': [
+                    "Walk me through your background as a Product Manager and how you prioritize your product roadmap.",
+                    "Tell me about a time you had to sunset a feature or pivot a product based on user analytics.",
+                    "How do you manage disagreements between engineering estimates and business deadlines?",
+                    "Describe a situation where a product launch did not go as expected. What did you learn?",
+                    "What is your framework for defining and measuring product-market fit?"
+                ],
+                'meeting': [
+                    "Can you walk the executive team through the key product metrics and user engagement trends this quarter?",
+                    "How are we addressing customer feedback regarding the latest feature release in this sync?",
+                    "Engineering reported a potential delay on the next milestone. How do we realign expectations with stakeholders?",
+                    "What are the top three priorities we must commit to for next sprint's roadmap?",
+                    "Let's wrap up with agreed action items and deliverables for each team lead."
+                ]
+            },
+            'Data Analyst': {
+                'interview': [
+                    "Can you summarize your experience in data analysis, modeling, and visualization tools?",
+                    "Tell me about a complex dataset you cleaned and analyzed that produced actionable business insights.",
+                    "How do you explain statistical findings or complex charts to stakeholders who are not data-savvy?",
+                    "Describe a time when data contradicted a stakeholder's initial hypothesis. How did you present your findings?",
+                    "What data validation techniques do you use to ensure data integrity and avoid bias in your reporting?"
+                ],
+                'meeting': [
+                    "Could you present the key insights from last month's performance dashboard to the team?",
+                    "How should we address the data anomalies observed in the recent conversion funnel report?",
+                    "Stakeholders are asking for automated reporting. What is your proposed implementation plan?",
+                    "How do we collaborate with the data engineering team to resolve current data pipeline latency?",
+                    "Let's confirm the next steps and deadlines for finalizing the quarterly analytics report."
+                ]
             }
         }
-        if role in fallback_db and industry in fallback_db[role] and mode in fallback_db[role][industry]:
-            return fallback_db[role][industry][mode]
-        return ['Tell me about yourself and your professional background.']
+
+        # Role-specific lookup
+        if role in bank and mode in bank[role]:
+            return bank[role][mode]
+
+        # General high-quality question bank across all other roles
+        if mode == 'interview':
+            return [
+                f"Tell me about your professional journey as a {role} and what brings you to this opportunity in {industry}.",
+                f"What is the most significant project you have delivered as a {role}, and what was your specific contribution?",
+                "Can you describe a time when you received critical feedback? How did you respond and what changes did you make?",
+                "Tell me about a time when you had to balance multiple tight deadlines. How did you prioritize your workload?",
+                f"Where do you see yourself growing professionally in {industry} over the next few years?",
+                "Describe a situation where you had to persuade a team member or stakeholder to adopt your idea.",
+                "Tell me about a time you made a mistake at work. How did you take ownership and resolve it?",
+                f"What qualities do you believe are essential for someone to succeed as a {role} in today's {industry} landscape?"
+            ]
+        else:
+            return [
+                f"Could you kick off the meeting with a concise update on the progress of our current {role} initiatives?",
+                f"We are evaluating a new strategy for our {industry} projects. What are your recommendations?",
+                "How should we respond to the latest client feedback to ensure we meet their expectations?",
+                "What dependencies between our team and partner departments do we need to address today?",
+                "Let's review the agreed action items, assign responsible owners, and set deadlines before closing."
+            ]
 
 
 # ---------------------------------------------------------------------------

@@ -53,23 +53,31 @@ def start_session():
         if mode not in ['interview', 'meeting']:
             return generate_response(False, 'Invalid practice mode', None, 400)
         
-        # Create session
-        session = Session(db, user_id, mode, role, industry)
-        session_id = session.create()
-        
         # Get question service
         question_service = get_question_service()
-        question_response = question_service.generate_question(role, industry, mode)
+        question_response = question_service.generate_question(
+            role=role, 
+            industry=industry, 
+            mode=mode,
+            previous_questions=[],
+            question_number=1
+        )
+        first_question = question_response.get('question', 'Tell me about your professional experience.')
+        
+        # Create session with the first question recorded
+        session = Session(db, user_id, mode, role, industry)
+        session.questions = [first_question]
+        session_id = session.create()
         
         Logger.info(f"Session created: {session_id}, mode: {mode}")
-        Logger.info(f"First question: {question_response['question']}")
+        Logger.info(f"First question (Q1): {first_question}")
         
         return generate_response(
             True, 
             'Session started', 
             {
                 'session_id': session_id, 
-                'question': question_response['question'],
+                'question': first_question,
                 'mode': mode
             }, 
             200
@@ -218,19 +226,42 @@ def get_next_question():
         if not session_doc:
             return generate_response(False, 'Session not found', None, 404)
         
+        # Collect all previously asked questions in this session
+        previous_questions = []
+        for resp in session_doc.get('responses', []):
+            if resp.get('question'):
+                previous_questions.append(resp.get('question'))
+        for q in session_doc.get('questions', []):
+            if q not in previous_questions:
+                previous_questions.append(q)
+
+        question_number = len(previous_questions) + 1
+        
         question_service = get_question_service()
         question_response = question_service.generate_question(
-            session_doc['role'], 
-            session_doc['industry'], 
-            session_doc['mode']
+            role=session_doc.get('role', 'Software Engineer'), 
+            industry=session_doc.get('industry', 'Technology'), 
+            mode=session_doc.get('mode', 'interview'),
+            previous_questions=previous_questions,
+            question_number=question_number
         )
+        new_question = question_response.get('question', 'Tell me about your professional experience.')
         
-        Logger.info(f"Next question: {question_response['question']}")
+        # Save newly generated question into the session document
+        try:
+            db['practice_sessions'].update_one(
+                {'_id': ObjectId(session_id)},
+                {'$addToSet': {'questions': new_question}}
+            )
+        except Exception as dbe:
+            Logger.warning(f"Could not update questions array in session: {dbe}")
+
+        Logger.info(f"Next question (Q{question_number}): {new_question}")
         
         return generate_response(
             True, 
             'Question generated', 
-            {'question': question_response['question']}, 
+            {'question': new_question, 'question_number': question_number}, 
             200
         )
     except Exception as e:

@@ -21,6 +21,7 @@ class Session:
         self.total_words = 0
         self.duration_seconds = 0
         self.responses = []
+        self.questions = []
     
     def to_dict(self):
         """Convert session to dictionary"""
@@ -37,7 +38,8 @@ class Session:
             'total_errors': self.total_errors,
             'total_words': self.total_words,
             'duration_seconds': self.duration_seconds,
-            'responses': self.responses
+            'responses': self.responses,
+            'questions': self.questions
         }
     
     def create(self):
