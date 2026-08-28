@@ -111,12 +111,13 @@ class SpeechToTextService:
             except Exception as gemini_err:
                 Logger.error(f"Gemini Audio Transcription Error: {str(gemini_err)}")
 
-        # 3. Graceful Fallback Response if STT service is offline
+        # 3. All transcription services failed — return empty so the caller can handle it gracefully
+        Logger.warning("All transcription services failed. Returning empty transcription.")
         return {
-            'success': True,
-            'transcription': "Speech audio recorded successfully.",
-            'confidence': 0.8,
-            'num_results': 1
+            'success': False,
+            'transcription': '',
+            'confidence': 0.0,
+            'num_results': 0
         }
 
 

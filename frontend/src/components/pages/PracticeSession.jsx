@@ -136,34 +136,37 @@ export default function PracticeSession() {
       }
     });
 
-    // Use WebM/Opus codec (what Google Cloud expects)
-    const options = {
-      mimeType: 'audio/wav',
-      audioBitsPerSecond: 48000
-    };
+    // Pick the best supported mimeType (audio/wav is NOT supported by MediaRecorder in any browser)
+    const preferredMimeTypes = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/ogg;codecs=opus',
+      'audio/ogg',
+    ];
+    const supportedMime = preferredMimeTypes.find(m => MediaRecorder.isTypeSupported(m)) || '';
+    console.log('Using mimeType:', supportedMime || '(browser default)');
 
-    // Fallback if WebM/Opus not supported
-    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-      console.warn('WebM/Opus not supported, using default');
-      mediaRecorderRef.current = new MediaRecorder(stream);
-    } else {
-      mediaRecorderRef.current = new MediaRecorder(stream, options);
-    }
+    const recorderOptions = supportedMime ? { mimeType: supportedMime, audioBitsPerSecond: 48000 } : {};
+    mediaRecorderRef.current = new MediaRecorder(stream, recorderOptions);
 
     audioChunksRef.current = [];
 
     mediaRecorderRef.current.ondataavailable = (event) => {
-      audioChunksRef.current.push(event.data);
+      if (event.data && event.data.size > 0) {
+        audioChunksRef.current.push(event.data);
+      }
     };
 
     mediaRecorderRef.current.onstop = () => {
       console.log('Recording stopped, processing audio...');
-      const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm;codecs=opus' });
-      console.log('Audio blob size:', audioBlob.size, 'bytes');
+      const mimeType = mediaRecorderRef.current.mimeType || supportedMime || 'audio/webm';
+      const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+      console.log('Audio blob size:', audioBlob.size, 'bytes, type:', mimeType);
       analyzeAudio(audioBlob);
     };
 
-    mediaRecorderRef.current.start();
+    // Pass timeslice (250ms) so ondataavailable fires periodically, not just on stop
+    mediaRecorderRef.current.start(250);
     setIsRecording(true);
     setRecordingTime(0);
 
@@ -194,8 +197,10 @@ export default function PracticeSession() {
   const token = localStorage.getItem('token');
 
   try {
+    // Determine file extension from blob type
+    const ext = audioBlob.type.includes('ogg') ? 'ogg' : 'webm';
     const formData = new FormData();
-    formData.append('audio', audioBlob, 'recording.webm');
+    formData.append('audio', audioBlob, `recording.${ext}`);
     formData.append('question', question);
     formData.append('session_id', sessionId);
 
@@ -233,13 +238,16 @@ export default function PracticeSession() {
       }
     });
   } catch (error) {
+    const backendMsg = error.response?.data?.message;
+    const friendlyMsg = backendMsg || 'Could not analyze audio. Please try again.';
     console.error('Analysis error:', error.response?.data || error.message);
-    setError('Could not analyze audio. Please try again.');
+    setError(friendlyMsg);
     setIsAnalyzing(false);
   }
 };
 
-  if (error) {
+  if (error && !sessionStarted) {
+    // Fatal error before session loaded — show full page
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
         <FiAlertCircle className="w-16 h-16 text-red-500 mb-4" />
@@ -344,6 +352,15 @@ export default function PracticeSession() {
             <p className="text-sm text-gray-500 mt-6 max-w-sm">
               Speak naturally. Your response will be analyzed for pronunciation and grammar. Take your time—there's no time limit.
             </p>
+
+            {/* Inline error banner (retryable errors like "no speech detected") */}
+            {error && sessionStarted && (
+              <div className="mt-6 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 max-w-sm text-sm">
+                <FiAlertCircle className="shrink-0" size={18} />
+                <span>{error}</span>
+                <button onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-600 font-bold">✕</button>
+              </div>
+            )}
           </div>
         </div>
       </div>

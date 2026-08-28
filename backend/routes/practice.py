@@ -119,8 +119,8 @@ def analyze_response():
         
         transcription = transcript_result.get('transcription', '') if transcript_result else ''
         if not transcription or not transcription.strip():
-            Logger.warning("Transcription is empty or unavailable")
-            transcription = "Speech recorded."
+            Logger.warning("Transcription is empty — no speech detected in audio")
+            return generate_response(False, 'No speech detected. Please speak clearly and try again.', None, 400)
         else:
             Logger.info(f"Transcription: {transcription}")
         
